@@ -6,50 +6,68 @@ import useProject from '~/hooks/use-project'
 import { cn } from '~/lib/utils'
 import { api } from '~/trpc/react'
 
+// Add loading states and empty states
 const CommitLog = () => {
-    const { projectId, project} = useProject()
-    const {data: commits } = api.project.getCommits.useQuery({projectId})
-  return (
-    <>
-      <ul className='space-y-6'>
-        {commits?.map((commit, commitIdx)=>{
-          return <li key={commit.id} className='relative flex gap-x-4'>
-            <div className={cn(
-              commitIdx === commits.keys.length - 1 ? 'h-0' : 'bottom-0',
-              'absolute left-0 top-0 flex w-6 justify-center '
-            )}>
-              <div className='w-px translate-x-1 bg-gray-200'></div>
+  const { projectId, project } = useProject()
+  const { data: commits, isLoading } = api.project.getCommits.useQuery({ projectId })
 
-            </div>
-            <>
-              <img src={commit.commitAuthorAvatar} alt="commit avatar" className='relative mt-4 size-8 flex-none rounded-full bg-gray-50'/>
-              <div className="flex-auto rounded-mg bg-white p-3 ring-1 ring-inset ring-gray-200">
-                <div className='flex justify-between gap-x-4'>
-                  <Link target='_blank' href={`${project?.githubUrl}/commit/${commit.commitHash}`} className='py-0.5  text-xs leading-5 bg-gray-50'>
-                  <span className='font-medium text-gray-800'>
-                    {commit.commitAuthorName}
-                  </span>{" "}
-                  <span className='inline-flex items-center'>
-                    commited
-                    <ExternalLink className='ml-1' size='4' />
-                  </span>
-                  </Link>
-                  
-                </div>
-                
-                <span className='font-semibold'>
-                  {commit.commitMessage}
+  if (isLoading) return <div>Loading commits...</div>
+  if (!commits?.length) return <div>No commits found for this project</div>
+
+  return (
+    <ul className='space-y-6'>
+      {commits.map((commit, commitIdx) => (
+        <li key={commit.id} className='relative flex gap-x-4'>
+          {/* Timeline connector */}
+          <div className={cn(
+            commitIdx === commits.length - 1 ? 'h-0' : 'h-full',
+            'absolute left-0 top-0 flex w-6 justify-center'
+          )}>
+            <div className='w-px bg-gray-200' />
+          </div>
+
+          <div className="relative flex gap-x-4">
+            <img 
+              src={commit.commitAuthorAvatar || '/default-avatar.png'} 
+              alt="author avatar" 
+              className='mt-4 h-8 w-8 flex-none rounded-full bg-gray-50'
+            />
+            <div className="flex-auto rounded-lg bg-white p-4 ring-1 ring-inset ring-gray-200">
+              <div className='flex justify-between gap-x-4'>
+                <Link
+                  target='_blank'
+                  href={`${project?.githubUrl}/commit/${commit.commitHash}`}
+                  className='flex items-center gap-1 text-sm font-medium text-gray-900 hover:text-blue-600'
+                >
+                  {commit.commitAuthorName}
+                  <ExternalLink className='h-4 w-4' />
+                </Link>
+                <span className='text-sm text-gray-500'>
+                  {new Date(commit.commitDate).toLocaleDateString()}
                 </span>
-                <pre className='mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-500'>
+              </div>
+              
+              <p className='mt-2 text-sm font-semibold text-gray-800'>
+                {commit.commitMessage}
+              </p>
+              
+              {/* Summary section with fallback */}
+              {commit.summary ? (
+                <pre className='mt-2 whitespace-pre-wrap text-sm text-gray-600'>
                   {commit.summary}
                 </pre>
-              </div>
-            </>
-          </li>
-        })}
-      </ul>
-    </>
+              ) : (
+                <p className='mt-2 text-sm italic text-gray-400'>
+                  {commit.summary === 'Failed to generate summary' 
+                    ? 'Failed to generate summary'
+                    : 'Generating summary...'}
+                </p>
+              )}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
-
 export default CommitLog

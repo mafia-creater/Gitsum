@@ -4,9 +4,11 @@ import { any } from 'zod';
 import axios from 'axios';
 import { db } from '~/server/db';
 import { aiSummarizeCommit } from './gemini';
+/* import { aiSummarizeCommit } from './deepseek';  */ // Changed from gemini.ts
 
 export const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
+    request: { retries: 3, retryAfter: 5 }
 })
 
 const githubUrl = 'https://github.com/mafia-creater/UberClone';
@@ -42,14 +44,20 @@ export const getCommitHashes = async (githubUrl: string): Promise<Response[]> =>
 }
 
 export const pollCommits = async (projectId: string) => {
-    const {project, githubUrl} = await fetchProjectGithubUrl(projectId);
-    const commitHashers = await getCommitHashes(githubUrl);
-    const unprocessedCommits = await filterUnprocessedCommits(projectId, commitHashers);
-    const summaryResponses = await Promise.all(unprocessedCommits.map((commit) => summarizeCommit(githubUrl, commit.commitHash)));
-    const summaries = summaryResponses.map((response: any) => {
-        if (response.status === 'fulfilled') {
-            return response.value as string;
+    const { project, githubUrl } = await fetchProjectGithubUrl(projectId);
+    const commitHashes = await getCommitHashes(githubUrl);
+    const unprocessedCommits = await filterUnprocessedCommits(projectId, commitHashes);
+    
+    // Use allSettled to handle both successes and failures
+    const summaryResults = await Promise.allSettled(
+        unprocessedCommits.map((commit) => summarizeCommit(githubUrl, commit.commitHash))
+    );
+
+    const summaries = summaryResults.map((result) => {
+        if (result.status === 'fulfilled') {
+            return result.value; // This could still be null
         }
+        console.error('Summary failed:', result.reason);
         return null;
     });
 
@@ -59,7 +67,6 @@ export const pollCommits = async (projectId: string) => {
             if (!commit) {
                 throw new Error('Commit is undefined');
             }
-            console.log(`processing commit ${index}`)
             return {
                 projectId: projectId,
                 commitHash: commit.commitHash,
@@ -67,14 +74,13 @@ export const pollCommits = async (projectId: string) => {
                 commitAuthorName: commit.commitAuthorName,
                 commitAuthorAvatar: commit.commitAuthorAvatar,
                 commitDate: commit.commitDate,
-                summary: summary ?? ''
-            }
+                summary: summary || 'Failed to generate summary'
+            };
         })
-    })
+    });
     
-    return commits
+    return commits;
 }
-
 async function summarizeCommit (githubUrl: string, commitHash: string){
     //get the diff, then pass the diff to ai
     const {data} = await axios.get(`${githubUrl}/commit/${commitHash}.diff`, {
