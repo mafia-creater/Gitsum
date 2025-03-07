@@ -24,7 +24,7 @@ GitSum is a web application designed to help developers manage and analyze their
 1. **Clone the repository**:
     ```bash
     git clone https://github.com/mafia-creater/Gitsum.git
-    cd dionysus
+    cd gitsum
     ```
 
 2. **Install dependencies**:
