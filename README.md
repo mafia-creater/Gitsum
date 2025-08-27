@@ -75,7 +75,7 @@ GitSum is a web application designed to help developers manage and analyze their
 ## Project Structure
 
 ```plaintext
-dionysus/
+gitsum/
 ├── prisma/
 │   └── schema.prisma          # Prisma schema file
 ├── src/
